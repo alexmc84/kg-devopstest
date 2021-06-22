@@ -1,0 +1,135 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "KG DevOps interview CF stack",
+    "Resources": {
+        "InterviewEC2Instance": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "IamInstanceProfile": {
+                    "Ref": "InterviewInstanceProfile"
+                },
+                "InstanceType": "t2.nano",
+                "ImageId": "ami-047bb4163c506cd98",
+                "KeyName": "test",
+                "SourceDestCheck": "false",
+                "SecurityGroupIds": [
+                    "sg-04f99af41b1b968ba"
+                ],
+                "SubnetId": "subnet-02eec3706593ba2c7",
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": "AlejandroMerino"
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "",
+                            [
+                                "#!/bin/bash\n",
+                                "sudo yum update\n",
+                                "aws configure set region eu-west-1\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        },
+        "InterviewApplicationLoadBalancer": {
+            "Type": "AWS::ElasticLoadBalancingV2::LoadBalancer",
+            "Properties": {
+                "Name": "testLoadBalancer",
+                "Scheme": "internet-facing",
+                "Subnets": [
+                    "subnet-02eec3706593ba2c7",
+                    "subnet-050e468057828fcac"
+                ]
+            }
+        },
+        "InterviewLoadBalancerDefaultTargetGroup": {
+            "Type": "AWS::ElasticLoadBalancingV2::TargetGroup",
+            "Properties": {
+                "HealthCheckIntervalSeconds": 30,
+                "HealthCheckPort": "traffic-port",
+                "HealthCheckTimeoutSeconds": 5,
+                "HealthyThresholdCount": 2,
+                "Name": "KGTargetGroup",
+                "Targets": [
+                    {
+                        "Id": {
+                            "Ref": "InterviewEC2Instance"
+                        }
+                    }
+                ],
+                "Port": 80,
+                "Protocol": "HTTP",
+                "TargetType": "instance",
+                "VpcId": "vpc-07e23370bfba300ca"
+            }
+        },
+        "ApplicationLoadBalancerListener": {
+            "Type": "AWS::ElasticLoadBalancingV2::Listener",
+            "Properties": {
+                "DefaultActions": [
+                    {
+                        "Type": "forward",
+                        "TargetGroupArn": {
+                            "Ref": "InterviewLoadBalancerDefaultTargetGroup"
+                        }
+                    }
+                ],
+                "LoadBalancerArn": {
+                    "Ref": "InterviewApplicationLoadBalancer"
+                },
+                "Port": 80,
+                "Protocol": "HTTP"
+            }
+        },
+        "InterviewInstanceProfile": {
+            "Type": "AWS::IAM::InstanceProfile",
+            "Properties": {
+                "Path": "/",
+                "Roles": [
+                    {
+                        "Ref": "InterviewRole"
+                    }
+                ]
+            }
+        },
+        "InterviewRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Principal": {
+                                "Service": [
+                                    "ec2.amazonaws.com"
+                                ]
+                            },
+                            "Action": [
+                                "sts:AssumeRole"
+                            ]
+                        }
+                    ]
+                },
+                "Path": "/",
+                "ManagedPolicyArns": [
+                    "arn:aws:iam::aws:policy/service-role/AmazonEC2RoleforSSM",
+                    "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
+                ]
+            }
+        }
+    },
+    "Outputs": {
+        "InterviewEC2Instance": {
+            "Value": {
+                "Ref": "InterviewEC2Instance"
+            }
+        }
+    }
+}
+
